@@ -1054,6 +1054,57 @@
                 location.reload();
             }
         }
+        // --- إعدادات إشعارات Firebase Cloud Messaging (Arkan Master V17) ---
+const messaging = firebase.messaging();
+
+async function initNotifications() {
+    try {
+        // تسجيل الـ Service Worker
+        const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+        console.log('Service Worker Registered');
+
+        // طلب إذن الإشعارات من المتصفح
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            // استخراج التوكن الفريد للجهاز باستخدام مفتاح VAPID الخاص بك
+            const currentToken = await messaging.getToken({
+                vapidKey: 'm58OJf1mYVHGuO1SJa2QydGIbL0gFnjQ6babKb5ayME',
+                serviceWorkerRegistration: registration
+            });
+
+            if (currentToken) {
+                console.log('Token Generated:', currentToken);
+                // تحديث التوكن في قاعدة البيانات عند المستخدم الحالي
+                if (state.user && state.user.phone) {
+                    await db.ref('users/' + state.user.phone).update({
+                        fcmToken: currentToken,
+                        lastTokenUpdate: Date.now()
+                    });
+                }
+            }
+        } else {
+            console.warn('Notification permission denied.');
+        }
+    } catch (err) {
+        console.error('Notification Init Error:', err);
+    }
+}
+
+// معالجة الرسائل الواردة أثناء فتح التطبيق
+messaging.onMessage((payload) => {
+    const title = payload.notification.title || "تنبيه جديد";
+    const body = payload.notification.body || "";
+    showNotif(`${title}: ${body}`);
+    if (Notification.permission === "granted") {
+        new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/1041/1041916.png' });
+    }
+});
+
+// تشغيل النظام عند التأكد من وجود مستخدم مسجل
+if (state.user && state.user.phone !== "ADMIN_ROOT") {
+    initNotifications();
+}
+
     </script>
 </body>
 </html>
